@@ -1,5 +1,5 @@
 import numpy as np
-from labs.lab1.index import load_chain, prob_trajectory, stationary_dist
+from labs.lab1.index import load_chain, prob_trajectory, stationary_dist, compute_dist
 
 
 class TestLab1:
@@ -58,4 +58,58 @@ class TestLab1:
             assert np.sum(stationary_dist(TestLab1.MARKOV_CHAIN)) == 1
 
         def test_is_close(self):
-            np.all(np.isclose(stationary_dist(TestLab1.MARKOV_CHAIN), TestLab1.STATIONARY_DISTRIBUTION))
+            assert np.all(
+                np.isclose(
+                    stationary_dist(TestLab1.MARKOV_CHAIN),
+                    TestLab1.STATIONARY_DISTRIBUTION, atol=1e-3
+                )
+            )
+
+        def test_stationarity(self):
+            assert np.all(
+                np.isclose(
+                    np.dot(
+                        stationary_dist(TestLab1.MARKOV_CHAIN),
+                        TestLab1.MARKOV_CHAIN[1]
+                    ),
+                    stationary_dist(TestLab1.MARKOV_CHAIN),
+                    atol=1e-3
+                )
+            )
+
+    class TestComputeDist:
+
+        def create_initial_distribution(self, markov_chain):
+            number_of_states = len(markov_chain[0])
+            return np.ones((1, number_of_states)) / number_of_states
+
+        def generate_steps(self, markov_chain, number_of_steps):
+            initial_distribution = self.create_initial_distribution(TestLab1.MARKOV_CHAIN)
+            return compute_dist(markov_chain, initial_distribution, number_of_steps)
+
+        def test_10_steps(self):
+            assert not np.all(
+                np.isclose(
+                    self.generate_steps(TestLab1.MARKOV_CHAIN, 10),
+                    stationary_dist(TestLab1.MARKOV_CHAIN),
+                    atol=1e-3
+                )
+            )
+
+        def test_100_steps(self):
+            assert np.all(
+                np.isclose(
+                    self.generate_steps(TestLab1.MARKOV_CHAIN, 100),
+                    stationary_dist(TestLab1.MARKOV_CHAIN),
+                    atol=1e-3
+                )
+            )
+
+        def test_1000_steps(self):
+            assert np.all(
+                np.isclose(
+                    self.generate_steps(TestLab1.MARKOV_CHAIN, 1000),
+                    stationary_dist(TestLab1.MARKOV_CHAIN),
+                    atol=1e-3
+                )
+            )
