@@ -23,4 +23,7 @@ def prob_trajectory(M, sequence):
 
 
 def stationary_dist(M):
-    return linalg.eig(M[1], left=True, right=False)[1][:, 0]
+    values, left, right = linalg.eig(M[1], right=True, left=True)
+    left_eigenvector = left[:, 0]
+    return left_eigenvector / linalg.norm(left_eigenvector, ord=1)
+
