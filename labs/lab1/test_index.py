@@ -1,5 +1,5 @@
 import numpy as np
-from labs.lab1.index import load_chain, prob_trajectory, stationary_dist, compute_dist
+from labs.lab1.index import load_chain, prob_trajectory, stationary_dist, compute_dist, simulate
 
 
 class TestLab1:
@@ -78,11 +78,9 @@ class TestLab1:
             )
 
     class TestComputeDist:
-
         def create_initial_distribution(self, markov_chain):
             number_of_states = len(markov_chain[0])
             return np.ones((1, number_of_states)) / number_of_states
-
         def generate_steps(self, markov_chain, number_of_steps):
             initial_distribution = self.create_initial_distribution(TestLab1.MARKOV_CHAIN)
             return compute_dist(markov_chain, initial_distribution, number_of_steps)
@@ -113,3 +111,15 @@ class TestLab1:
                     atol=1e-3
                 )
             )
+
+    class TestSimulate:
+        def create_initial_distribution(self, markov_chain):
+            number_of_states = len(markov_chain[0])
+            return np.ones((1, number_of_states)) / number_of_states
+        def path_10_steps(self):
+            simulation = simulate(
+                TestLab1.MARKOV_CHAIN,
+                self.create_initial_distribution(TestLab1.MARKOV_CHAIN),
+                10
+            )
+            assert np.all(simulation == ('1', '2', '4', '0', '1', '2', '3', '4', '0', '2'))

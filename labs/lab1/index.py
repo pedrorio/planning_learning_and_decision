@@ -25,8 +25,27 @@ def prob_trajectory(markov_chain, sequence):
 def stationary_dist(markov_chain):
     values, left, right = linalg.eig(markov_chain[1], right=True, left=True)
     left_eigenvector = left[:, 0]
+    left_eigenvector = -np.linalg.eig(markov_chain[1].T)[1][:, 0]
     return left_eigenvector / linalg.norm(left_eigenvector, ord=1)
 
 
 def compute_dist(markov_chain, distribution, number_of_steps):
     return np.dot(distribution, np.linalg.matrix_power(markov_chain[1], number_of_steps))
+
+
+def simulate(markov_chain, distribution, number_of_steps):
+    state_space, transition_matrix = markov_chain[0], markov_chain[1]
+    sequence = []
+
+    for i in range(number_of_steps - 1):
+        # check max index
+        max_index = np.argmax(distribution)
+        # append state with max index
+        sequence.append(state_space[max_index])
+        # update distribution
+        distribution = np.zeros(len(state_space))
+        distribution[max_index] = 1
+
+        distribution = np.dot(distribution, transition_matrix)
+
+    return tuple(sequence)
