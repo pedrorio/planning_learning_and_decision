@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import linalg
+import matplotlib.pyplot as plt
 
 
 def load_chain():
@@ -49,3 +50,9 @@ def simulate(markov_chain, distribution, number_of_steps):
         distribution = np.dot(distribution, transition_matrix)
 
     return tuple(sequence)
+
+
+
+data = np.array(traj)
+plt.hist(x = data, align = 'mid')
+plt.show()
