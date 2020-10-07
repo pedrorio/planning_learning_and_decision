@@ -116,10 +116,12 @@ class TestLab1:
         def create_initial_distribution(self, markov_chain):
             number_of_states = len(markov_chain[0])
             return np.ones((1, number_of_states)) / number_of_states
-        def path_10_steps(self):
+
+        def test_path_10_steps(self):
             simulation = simulate(
                 TestLab1.MARKOV_CHAIN,
                 self.create_initial_distribution(TestLab1.MARKOV_CHAIN),
                 10
             )
-            assert np.all(simulation == ('1', '2', '4', '0', '1', '2', '3', '4', '0', '2'))
+            result = ('1', '2', '4', '0', '1', '2', '3', '4', '0', '2')
+            assert np.all(result == simulation)

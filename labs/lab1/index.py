@@ -1,6 +1,8 @@
 import numpy as np
-from scipy import linalg
 import matplotlib.pyplot as plt
+from collections import Counter
+
+np.random.seed(42)
 
 
 def load_chain():
@@ -24,10 +26,10 @@ def prob_trajectory(markov_chain, sequence):
 
 
 def stationary_dist(markov_chain):
-    values, left, right = linalg.eig(markov_chain[1], right=True, left=True)
-    left_eigenvector = left[:, 0]
+    # values, left, right = linalg.eig(markov_chain[1], right=True, left=True)
+    # left_eigenvector = left[:, 0]
     left_eigenvector = -np.linalg.eig(markov_chain[1].T)[1][:, 0]
-    return left_eigenvector / linalg.norm(left_eigenvector, ord=1)
+    return left_eigenvector / np.linalg.norm(left_eigenvector, ord=1)
 
 
 def compute_dist(markov_chain, distribution, number_of_steps):
@@ -35,24 +37,25 @@ def compute_dist(markov_chain, distribution, number_of_steps):
 
 
 def simulate(markov_chain, distribution, number_of_steps):
-    state_space, transition_matrix = markov_chain[0], markov_chain[1]
+    state_space, transition_matrix = markov_chain
+    state_space = np.asanyarray(state_space)
+    distribution = distribution[0]
     sequence = []
-
-    for i in range(number_of_steps - 1):
-        # check max index
-        max_index = np.argmax(distribution)
-        # append state with max index
-        sequence.append(state_space[max_index])
-        # update distribution
-        distribution = np.zeros(len(state_space))
-        distribution[max_index] = 1
-
-        distribution = np.dot(distribution, transition_matrix)
-
+    for i in range(number_of_steps):
+        selected_state = np.random.choice(state_space, p=distribution)
+        sequence.append(selected_state)
+        distribution = transition_matrix[np.where(state_space == selected_state)[0][0], :]
     return tuple(sequence)
 
 
+def create_plot():
+    M = load_chain()
+    nS = len(M[0])
+    u = np.ones((1, nS)) / nS
 
-data = np.array(traj)
-plt.hist(x = data, align = 'mid')
-plt.show()
+    plt.hist(x=list(map(int, simulate(M, u, 10000))), bins=[0, 1, 2, 3, 4, 5], align='left', rwidth=0.5)
+    plt.gca().xaxis.set_major_locator(plt.MultipleLocator(1))
+    plt.gca().xaxis.set_major_formatter(plt.FormatStrFormatter('%d'))
+    plt.show()
+
+    return Counter(simulate(M, u, 10000))
