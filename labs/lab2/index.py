@@ -41,16 +41,16 @@ def evaluate_pol(MDP, PI):
 def value_iteration(MDP):
     X, A, P, c, g = MDP
     J = np.zeros(len(X))
+    Q = np.zeros((len(X), len(A)))
     err = 1
     i = 0
 
     start = time.time()
     while err > pow(10, -8):
-        Qu = c[:, 0] + g * P[0].dot(J)
-        Qd = c[:, 1] + g * P[1].dot(J)
-        Ql = c[:, 2] + g * P[2].dot(J)
-        Qr = c[:, 3] + g * P[3].dot(J)
-        J_new = np.min((Qu, Qd, Ql, Qr), axis=0)
+        for i in range(len(A)):
+            Q[:, i, None] = c[:, i, None] + g * P[i].dot(J)
+
+        J_new = np.min(Q, axis=1, keepdims=True)
         err = np.linalg.norm(J_new - J)
         i += 1
         J = J_new
@@ -60,30 +60,46 @@ def value_iteration(MDP):
     return J
 
 
-# Add your code here.
-import time
-
-
 def policy_iteration(MDP):
     X, A, P, c, g = MDP
 
-    # Initial policy
+    X = np.expand_dims(X, axis=1)
+    A = np.expand_dims(A, axis=1)
+
     PI = np.ones((len(X), len(A))) / len(A)
     quit = False
     i = 0
 
-    C_PI = np.zeros((len(X), 1))
-    P_PI = np.zeros((len(X), len(X)))
+    # C_PI = np.zeros((len(X), 1))
+    # P_PI = np.zeros((len(X), len(X)))
     Q = np.zeros((len(X), len(A)))
+
+    def J_Optimum(MDP):
+        X, A, P, c, g = MDP
+        J = np.zeros((len(X), 1))
+        Q = np.zeros((len(X), len(A)))
+        err = 1
+        i = 0
+
+        while err > 1e-8:
+            for i in range(len(A)):
+                Q[:, i, None] = c[:, i, None] + g * P[i].dot(J)
+
+            Jnew = np.min(Q, axis=1, keepdims=True)
+            err = np.linalg.norm(Jnew - J)
+            i += 1
+            J = Jnew
+        return J
 
     start = time.time()
 
     while not quit:
-        for j in range(len(A)):
-            C_PI += np.diag(PI[:, j]).dot(c[:, j, None])
-            P_PI += np.diag(PI[:, j]).dot(P[j])
-
-        J = np.linalg.inv(np.eye(len(X)) - g * P_PI).dot(C_PI)
+        # for j in range(len(A)):
+        #     C_PI += np.diag(PI[:, j]).dot(c[:, j, None])
+        #     P_PI += np.diag(PI[:, j]).dot(P[j])
+        # J = np.linalg.inv(np.eye(len(X)) - g * P_PI).dot(C_PI)
+        J = J_Optimum(MDP)
+        print(J.shape)
 
         for i in range(len(A)):
             Q[:, i, None] = c[:, i, None] + g * P[i].dot(J)
@@ -94,8 +110,8 @@ def policy_iteration(MDP):
             PI_new[:, i, None] = np.isclose(
                 Q[:, i, None],
                 np.min(Q, axis=1, keepdims=True),
-                atol=pow(10, -8),
-                rtol=pow(10, -8)
+                atol=1e-8,
+                rtol=1e-8
             ).astype(int)
 
         PI_new = PI_new / np.sum(PI_new, axis=1, keepdims=True)
