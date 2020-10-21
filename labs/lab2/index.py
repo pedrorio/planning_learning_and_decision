@@ -108,28 +108,28 @@ def policy_iteration(MDP):
     print(f'N. iterations: {i}')
     return PI
 
+NRUNS =100
+
 def simulate(MDP, PI, x0, length):
     X, A, P, c, g = MDP
-    # path = []
-    # initial state
-    # X[x0]
-    # action probabilities
-    # PI[x0]
-    # action is a random choice given the probabilities
-    # a = random.choice(A, PI[x0])
-    # Transition Probabilities
-    # P[a]
-    # x is a random choice given the probabilities
-    # x = random_choice(X, P[a])
-    # path.append([a, x])
-    # complete the path
 
-    # discount the cost
-    # start at the end
-    # get the cost c[x][a]
-    # discount it and add the previous c[x][a]
-    # reach the beginning
+    discounted_costs = []
+    for run in range(NRUNS):
+        path = []
 
-    # repeat for n paths
-    # compute the average
+        x = x0
+        a = np.random.choice(len(A), p=PI[x])
+        path.append((x, a))
 
+        for i in range(1,length):
+            x = np.random.choice(len(X), p=P[a][x])
+            a = np.random.choice(len(A), p=PI[x])
+            path.append((x, a))
+
+        discounted_cost = 0
+        for j in range(length):
+            x, a = path[j]
+            discounted_cost += c[x][a] * pow(g,j)
+
+        discounted_costs.append(discounted_cost)
+    return sum(discounted_costs)/len(discounted_costs)
