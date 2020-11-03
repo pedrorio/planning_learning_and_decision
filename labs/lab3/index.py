@@ -1,15 +1,9 @@
 import numpy as np
 
-import pdb
-import itertools
-
 def load_pomdp(file_path, g):
     file = np.load(file_path)
     X, A, Z, P, O, c = file['X'], file['A'], file['Z'], file['P'], file['O'], file['c']
     return X, A, Z, tuple(P), tuple(O), c, g
-
-
-M = load_pomdp('maze.npz', 0.95)
 
 def gen_trajectory(POMDP, x0, n):
     X, A, Z, P, O, c, g = POMDP
@@ -33,79 +27,63 @@ def gen_trajectory(POMDP, x0, n):
   
     return state_path, action_path, observation_path
 
-
 def belief_update(P, O, b, a, z):
     estimated_belief = b @ P[a] @ np.diag(O[a][:, z])
     return estimated_belief / np.linalg.norm(estimated_belief, ord=1, keepdims=True, axis=1)
 
-
-def sample_beliefs_one(POMDP, n):
+def sample_beliefs(POMDP, n):
     X, A, Z, P, O, c, g = POMDP
 
     x0 = np.random.choice(len(X))
     _, action_path, observation_path = gen_trajectory(POMDP, x0, n)
 
     beliefs = np.empty((n, 1, len(X)))
-    belief = np.ones((1, len(X)), dtype=np.float64) / len(X)
-    beliefs[0] = belief
+    beliefs[0] = np.ones((1, len(X)), dtype=np.float64) / len(X)
+
+    ids_to_delete = []
 
     for i in range(1, n):
-        estimated_belief = belief_update(P, O, belief, action_path[i], observation_path[i])
-        beliefs[i, :, None] = estimated_belief[:]
-
-    # print(f'n: {n}, beliefs shape {beliefs.shape}')
-
-    _, ids = np.unique(beliefs, axis=0, return_index=True)
-    ids.sort()
-    beliefs = beliefs[ids]
-
-    # print(f'n: {n}, beliefs shape {beliefs.shape}')
-
-    # for combination in itertools.combinations(beliefs, 2):
-    #     first, second = combination
-    #     print(np.linalg.norm(first - second))
-    #     print(np.linalg.norm(first - second) < 1e-3)
-    #     if np.linalg.norm(first - second) < 1e-3:
-    #         beliefs = np.delete(beliefs, np.where(np.all(beliefs == first, axis=2))[0], axis=0)
-
-    idx_to_filter = []
-    for combination in itertools.combinations(enumerate(beliefs), 2):
-        first, second = combination
-        first_index, first_element = first
-        second_index, second_element = second
-
-        # print(f'{first_index}, {second_index}, with norm = {np.linalg.norm(first_element - second_element)}, {np.linalg.norm(first_element - second_element, ord=1, keepdims=True, axis=1) < 1e-3}')
-
-        # idx_to_filter.append(first_index)
- 
-        if np.linalg.norm(first_element - second_element, ord=1, keepdims=True, axis=1) < 1e-3:
-            if first_index in idx_to_filter or second_index in idx_to_filter:
-                pass
-            elif first_index in idx_to_filter:
-                idx_to_filter.append(second_index)
+        estimated_belief = belief_update(P, O, beliefs[i-1], action_path[i], observation_path[i])
+        for j in range(0, i):
+            if np.linalg.norm(estimated_belief - beliefs[j], ord=1, keepdims=True, axis=1) >= 1e-3:
+                beliefs[i, :, None] = estimated_belief[:]
             else:
-                idx_to_filter.append(first_index)
-                # idx_to_filter.append(second_index)
-    beliefs = np.delete(beliefs, idx_to_filter, axis=0)
-    # print(idx_to_filter)
+                ids_to_delete.append(i)
 
-    # print(f'n: {n}, beliefs shape {beliefs.shape}')
+    beliefs = np.delete(beliefs, ids_to_delete, axis=0)
     return beliefs
 
+def solve_mdp(POMDP):
+    X, A, Z, P, O, c, g = POMDP
 
-np.random.seed(42)
+    J = np.zeros(len(X))
+    Q = np.empty((len(X), len(A)))
 
-# 3 sample beliefs
-B = sample_beliefs_one(M, 3)
-print('%i beliefs sampled:' % len(B))
-for i in range(len(B)):
-    print(B[i])
-    print('Belief adds to 1?', np.isclose(B[i].sum(), 1.))
+    while True:
+        for a in range(len(A)):
+            Q[:, a] = c[:, a] + g * (P[a] * J).sum(axis=1)
+        J_new = np.min(Q, axis=1)
+        if np.linalg.norm(J_new - J) < 1e-8:
+            break
+        else:
+            J = J_new
+    return Q
 
-B = sample_beliefs_one(M, 100)
-print('%i beliefs sampled.' % len(B))
-# for i in range(len(B)):
-    # print(B[i])
-    # print('Belief adds to 1?', np.isclose(B[i].sum(), 1.))
+def get_heuristic_action(belief, Q, heuristic):
+    Qmin = Q.min(axis=1, keepdims=True)
+    epsilon = 1e-8
+    policy_mdp = np.isclose(Q, Qmin, atol=epsilon, rtol=epsilon).astype(int)
+    policy_mdp = policy_mdp / policy_mdp.sum(axis=1, keepdims=True)
 
-# print(t)
+    if heuristic == "mls":
+        policy = np.argmax(policy_mdp[np.argmax(belief)])
+    elif heuristic == "av":
+        policy = np.argmax(belief @ policy_mdp, axis=1)[0]
+    elif heuristic == "q-mdp":
+        policy = np.argmin(belief @ Q)
+
+    return policy
+
+def get_optimal_action(belief, G, ids):
+    policy = belief @ G
+    return ids[np.argmin(policy)]
