@@ -1,7 +1,7 @@
 import numpy as np
+
 import pdb
 import itertools
-
 
 def load_pomdp(file_path, g):
     file = np.load(file_path)
@@ -10,7 +10,6 @@ def load_pomdp(file_path, g):
 
 
 M = load_pomdp('maze.npz', 0.95)
-
 
 def gen_trajectory(POMDP, x0, n):
     X, A, Z, P, O, c, g = POMDP
@@ -31,11 +30,8 @@ def gen_trajectory(POMDP, x0, n):
 
         z = np.random.choice(len(Z), p=O[a][x, :])
         observation_path[i] = z
-
+  
     return state_path, action_path, observation_path
-
-
-np.random.seed(42)
 
 
 # t = gen_trajectory(M, 0, 10)
