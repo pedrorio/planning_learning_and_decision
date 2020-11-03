@@ -34,12 +34,8 @@ def gen_trajectory(POMDP, x0, n):
     return state_path, action_path, observation_path
 
 
-# t = gen_trajectory(M, 0, 10)
-
-
 def belief_update(P, O, b, a, z):
     estimated_belief = b @ P[a] @ np.diag(O[a][:, z])
-    # return estimated_belief / np.sum(estimated_belief)
     return estimated_belief / np.linalg.norm(estimated_belief, ord=1, keepdims=True, axis=1)
 
 
@@ -50,7 +46,7 @@ def sample_beliefs_one(POMDP, n):
     _, action_path, observation_path = gen_trajectory(POMDP, x0, n)
 
     beliefs = np.empty((n, 1, len(X)))
-    belief = np.ones((1, len(X)), dtype=float) / len(X)
+    belief = np.ones((1, len(X)), dtype=np.float64) / len(X)
     beliefs[0] = belief
 
     for i in range(1, n):
@@ -78,9 +74,15 @@ def sample_beliefs_one(POMDP, n):
         first_index, first_element = first
         second_index, second_element = second
 
-        if np.linalg.norm(first_element - second_element) < 1e-3:
+        # print(f'{first_index}, {second_index}, with norm = {np.linalg.norm(first_element - second_element)}, {np.linalg.norm(first_element - second_element, ord=1, keepdims=True, axis=1) < 1e-3}')
+
+        # idx_to_filter.append(first_index)
+ 
+        if np.linalg.norm(first_element - second_element, ord=1, keepdims=True, axis=1) < 1e-3:
             if first_index in idx_to_filter or second_index in idx_to_filter:
                 pass
+            elif first_index in idx_to_filter:
+                idx_to_filter.append(second_index)
             else:
                 idx_to_filter.append(first_index)
                 # idx_to_filter.append(second_index)
@@ -103,7 +105,7 @@ for i in range(len(B)):
 B = sample_beliefs_one(M, 100)
 print('%i beliefs sampled.' % len(B))
 # for i in range(len(B)):
-#     print(B[i])
-#     print('Belief adds to 1?', np.isclose(B[i].sum(), 1.))
+    # print(B[i])
+    # print('Belief adds to 1?', np.isclose(B[i].sum(), 1.))
 
 # print(t)
