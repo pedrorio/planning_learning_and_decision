@@ -1,4 +1,7 @@
 import numpy as np
+import pdb
+import itertools
+
 
 def load_pomdp(file_path, g):
     file = np.load(file_path)
@@ -6,87 +9,105 @@ def load_pomdp(file_path, g):
     return X, A, Z, tuple(P), tuple(O), c, g
 
 
+M = load_pomdp('maze.npz', 0.95)
+
 
 def gen_trajectory(POMDP, x0, n):
     X, A, Z, P, O, c, g = POMDP
 
-    # P_A_{t+1} = P_A_{t} * P[a] * diag(O_A{o})
+    state_path = np.zeros(n + 1, dtype=int)
+    action_path = np.zeros(n, dtype=int)
+    observation_path = np.zeros(n, dtype=int)
 
-    # array of n+1 state indices
-    # (29 + combinations of 2 keys + imp in 3 spaces)
-    state_path = np.zeros(n+1, dtype=np.int16)
-    state_path[0] = int(x0)
     x = x0
-    action_path = np.zeros(n, dtype=np.int16)
-    observation_path = np.zeros(n, dtype=np.int16)
-    A_p = np.ones(len(A)) / len(A)
-    A_p = np.expand_dims(A_p, axis=0)
-    # print(A_p)
-    # print(A_p.shape)
-    belief = np.ones(len(X)) / len(X)
-    belief = np.expand_dims(belief, axis=0)
-    # print(X_p)
-    # print(X_p.shape)
+    state_path[0] = x
 
-    
-    
-    for i in range(0,n):
-        # array of n action indices
-        # (5 actions, up, down, lef, right, listen)
-        # print(f'i is {i}')
-        # print("choosing a")
-        
-        a = np.random.choice(len(A), p=A_p[0, :])
+    for i in range(0, n):
+        a = np.random.choice(len(A))
         action_path[i] = a
-        # print("adding a to action path")
-        # print(f'a is: {a}')
 
-        Z_p = O[a][x, :]
-        z = int(np.random.choice(len(Z), p=Z_p))
+        x = np.random.choice(len(X), p=P[a][x, :])
+        state_path[i + 1] = x
+
+        z = np.random.choice(len(Z), p=O[a][x, :])
         observation_path[i] = z
-        # print("adding z to observation path")
-        # print(f'z is: {z}')
 
-        # print('computing belief')
-        # print(f'belief: {belief.shape}')
-        # print(f'P[a]: { P[a].shape}')
-        # print(f'np.diag(O[a][:,z]): {np.diag(O[a][:, z]).shape}')
-        # print(f'O[a]: {O[a].shape}')
-        
-        # X_p = np.matmul(np.matmul(X_p,P[a]),np.diag(O[a][x,:]))
-        belief_est = np.matmul(belief, P[a])
-        belief = np.matmul(belief_est, np.diag(O[a][:, z]))
-
-        # belief = np.matmul(belief_est, belief)
-
-        # print(np.sum(np.abs(X_p), axis=1))
-        # X_p /= np.sum(np.abs(X_p), axis=1)
-        # print(belief)
-
-        norm = np.linalg.norm(belief, axis=1, keepdims=True, ord=1)
-        # print(norm)
-        belief = belief/norm
-        # print(belief)
-        
-        # print(belief.shape)
-        x = np.random.choice(len(X), p=belief[0, :])
-        
-        state_path[i+1] = x
-        # print("adding x to state path")
-        # print(f'x is: {x}')
-        # print("\n")
-
-        # [state_path[0]]
-        # print(TP_A)
-
-        # array of n observation indices
-        
-        # O_A = O[A_i]
-        # print(O_A.shape)
     return state_path, action_path, observation_path
-    
 
 
-M = load_pomdp('maze.npz', 0.95)
-t = gen_trajectory(M, 0,  10)
-    
+np.random.seed(42)
+
+
+# t = gen_trajectory(M, 0, 10)
+
+
+def belief_update(P, O, b, a, z):
+    estimated_belief = b @ P[a] @ np.diag(O[a][:, z])
+    # return estimated_belief / np.sum(estimated_belief)
+    return estimated_belief / np.linalg.norm(estimated_belief, ord=1, keepdims=True, axis=1)
+
+
+def sample_beliefs_one(POMDP, n):
+    X, A, Z, P, O, c, g = POMDP
+
+    x0 = np.random.choice(len(X))
+    _, action_path, observation_path = gen_trajectory(POMDP, x0, n)
+
+    beliefs = np.empty((n, 1, len(X)))
+    belief = np.ones((1, len(X)), dtype=float) / len(X)
+    beliefs[0] = belief
+
+    for i in range(1, n):
+        estimated_belief = belief_update(P, O, belief, action_path[i], observation_path[i])
+        beliefs[i, :, None] = estimated_belief[:]
+
+    # print(f'n: {n}, beliefs shape {beliefs.shape}')
+
+    _, ids = np.unique(beliefs, axis=0, return_index=True)
+    ids.sort()
+    beliefs = beliefs[ids]
+
+    # print(f'n: {n}, beliefs shape {beliefs.shape}')
+
+    # for combination in itertools.combinations(beliefs, 2):
+    #     first, second = combination
+    #     print(np.linalg.norm(first - second))
+    #     print(np.linalg.norm(first - second) < 1e-3)
+    #     if np.linalg.norm(first - second) < 1e-3:
+    #         beliefs = np.delete(beliefs, np.where(np.all(beliefs == first, axis=2))[0], axis=0)
+
+    idx_to_filter = []
+    for combination in itertools.combinations(enumerate(beliefs), 2):
+        first, second = combination
+        first_index, first_element = first
+        second_index, second_element = second
+
+        if np.linalg.norm(first_element - second_element) < 1e-3:
+            if first_index in idx_to_filter or second_index in idx_to_filter:
+                pass
+            else:
+                idx_to_filter.append(first_index)
+                # idx_to_filter.append(second_index)
+    beliefs = np.delete(beliefs, idx_to_filter, axis=0)
+    # print(idx_to_filter)
+
+    # print(f'n: {n}, beliefs shape {beliefs.shape}')
+    return beliefs
+
+
+np.random.seed(42)
+
+# 3 sample beliefs
+B = sample_beliefs_one(M, 3)
+print('%i beliefs sampled:' % len(B))
+for i in range(len(B)):
+    print(B[i])
+    print('Belief adds to 1?', np.isclose(B[i].sum(), 1.))
+
+B = sample_beliefs_one(M, 100)
+print('%i beliefs sampled.' % len(B))
+# for i in range(len(B)):
+#     print(B[i])
+#     print('Belief adds to 1?', np.isclose(B[i].sum(), 1.))
+
+# print(t)
