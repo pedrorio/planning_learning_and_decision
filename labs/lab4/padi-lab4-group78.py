@@ -116,7 +116,7 @@ def plot_overfit():
               1, .9, .8, .7, .6, .5, .4, .3, .2,
               .1, .09, .08, .07, .06, .05, .04, .03, .02, .01]
 
-    RUNS = 1
+    RUNS = 100
 
     # Investigate overfitting
     err_train = np.zeros((len(COEFFS), 1))  # Error in training set
