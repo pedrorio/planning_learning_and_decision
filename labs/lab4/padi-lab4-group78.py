@@ -105,7 +105,7 @@ weights = my_train_lf(pca_train_x, y_train)
 
 sk_weights = skl_train_lr(pca_train_x, y_train, 1e40)
 
-print(nll(pca_train_x, y_train, weights))
+nll(pca_train_x, y_train, weights)
 
 
 def plot_overfit():
@@ -116,7 +116,7 @@ def plot_overfit():
               1, .9, .8, .7, .6, .5, .4, .3, .2,
               .1, .09, .08, .07, .06, .05, .04, .03, .02, .01]
 
-    RUNS = 100
+    RUNS = 1
 
     # Investigate overfitting
     err_train = np.zeros((len(COEFFS), 1))  # Error in training set
@@ -155,6 +155,9 @@ def plot_overfit():
     plt.legend(loc='best')
 
     plt.tight_layout()
+
+    print(f'min nll: {np.min(err_valid, axis=0)[0]}')
+    print(f'min coeff: {COEFFS[np.where(err_valid == np.min(err_valid, axis=0))[0][0]]}')
 
     plt.show()
 
