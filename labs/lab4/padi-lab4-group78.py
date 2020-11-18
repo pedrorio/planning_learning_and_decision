@@ -107,17 +107,17 @@ sk_weights = skl_train_lr(pca_train_x, y_train, 1e40)
 
 nll(pca_train_x, y_train, weights)
 
+COEFFS = [1e4, 9e3, 8e3, 7e3, 6e3, 5e3, 4e3, 3e3, 2e3,
+          1000, 900, 800, 700, 600, 500, 400, 300, 200,
+          100, 90, 80, 70, 60, 50, 40, 30, 20,
+          10, 9, 8, 7, 6, 5, 4, 3, 2,
+          1, .9, .8, .7, .6, .5, .4, .3, .2,
+          .1, .09, .08, .07, .06, .05, .04, .03, .02, .01]
 
-def plot_overfit():
-    COEFFS = [1e4, 9e3, 8e3, 7e3, 6e3, 5e3, 4e3, 3e3, 2e3,
-              1000, 900, 800, 700, 600, 500, 400, 300, 200,
-              100, 90, 80, 70, 60, 50, 40, 30, 20,
-              10, 9, 8, 7, 6, 5, 4, 3, 2,
-              1, .9, .8, .7, .6, .5, .4, .3, .2,
-              .1, .09, .08, .07, .06, .05, .04, .03, .02, .01]
+RUNS = 100
 
-    RUNS = 100
 
+def compute_average_nll(COEFFS, RUNS):
     # Investigate overfitting
     err_train = np.zeros((len(COEFFS), 1))  # Error in training set
     err_valid = np.zeros((len(COEFFS), 1))  # Error in validation set
@@ -146,20 +146,63 @@ def plot_overfit():
             err_valid[n] += nll_valid / RUNS
 
     print('Completed: 100%')
+    print(f'min nll: {np.min(err_valid, axis=0)[0]}')
+    print(f'min coeff: {COEFFS[np.where(err_valid == np.min(err_valid, axis=0))[0][0]]}')
 
+    return COEFFS, err_train, err_valid
+
+
+def min_nll_coeff(COEFFS, err_valid):
+    return COEFFS[np.where(err_valid == np.min(err_valid, axis=0))[0][0]]
+
+
+def plot_nll(COEFFS, err_train, err_valid):
     plt.figure()
     plt.semilogx(COEFFS, err_train, 'k:', linewidth=3, label='Training')
     plt.semilogx(COEFFS, err_valid, 'k-', linewidth=3, label='Test')
     plt.xlabel('Regularization parameter')
     plt.ylabel('Negative log-likelihood')
     plt.legend(loc='best')
-
+    plt.axvline(x=min_nll_coeff(COEFFS, err_valid))
     plt.tight_layout()
-
-    print(f'min nll: {np.min(err_valid, axis=0)[0]}')
-    print(f'min coeff: {COEFFS[np.where(err_valid == np.min(err_valid, axis=0))[0][0]]}')
-
-    plt.show()
+    # plt.show()
 
 
-plot_overfit()
+COEFFS, err_train, err_valid = compute_average_nll(COEFFS, RUNS)
+plot_nll(COEFFS, err_train, err_valid)
+
+C_min = min_nll_coeff(COEFFS, err_valid)
+print(f'C_min: {C_min}')
+
+w_opt = skl_train_lr(pca_train_x, y_train, C_min)
+
+training_nll = nll(pca_train_x, y_train, w_opt)
+test_nll = nll(pca_test_x, y_test, w_opt)
+
+print(f'training_nll: {training_nll}')
+print(f'test_nll: {test_nll}')
+
+# Comments:
+# Looking at learned parameters of both 'my_train_lr' and 'skl_learn_lr' we can confirm that
+# they are quite similar, i.e. their differences are negligible.
+
+# Comments:
+# C is the inverse regularization strength (L2 regularization ("squared magnitude" of
+# penalization).
+
+# After observing the plot of the negative log-likelihood between the training and
+# test sets we can see that some overfitting occurs. We can observe from the graph that,
+# even though the negative log likelihood in the training set continues to drop as we increse
+# the regularization parameter C, the same behavior does not occur in the test set,
+# where the value for the negative log likelihood starts to increase when increase
+# C past some value in between 10^0 and 10^1. This can be a sign of overfitting,
+# where the model will tailor the parameters to specificities of the training data,
+# i.e. will fit the training data perfectly and won't be able to generalize to new
+# unseen data which does not have the same specificities.
+# A suited value for C should be the one that minimizes the test set negative log
+# likelihood.
+
+# Following this reasoning, the best value for the validation set C is 2, and the negative log likelihood is 0.268.
+# Using this value of C to train the model, the negative log likelihood is 0.221 using the whole training data
+# and 0.239 using the test data. This is consistent with expectations as the test negative log likelihood should always
+# be higher or equal to the training negative log likelihood.
